@@ -4,14 +4,22 @@ import { Label } from "@/components/ui/label";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useUserProfile } from "../hooks/useQueries";
 import { useInitialize, useSaveUserProfile } from "../hooks/useQueries";
 
 export default function AuthGuard({ children }: { children: ReactNode }) {
   const { identity, isInitializing } = useInternetIdentity();
+  const { actor, isFetching: actorFetching } = useActor();
   const navigate = useNavigate();
   const { data: userProfile, isLoading: profileLoading } = useUserProfile();
   const initialize = useInitialize();
@@ -28,29 +36,60 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
 
   const initializeMutate = initialize.mutate;
 
-  // Initialize + check profile on first login
+  // Initialize once actor and profile query are ready
   useEffect(() => {
-    if (!identity || profileLoading || initCalled.current) return;
+    if (
+      !identity ||
+      profileLoading ||
+      actorFetching ||
+      !actor ||
+      initCalled.current
+    )
+      return;
     initCalled.current = true;
 
     initializeMutate(undefined, {
-      onSettled: () => {
-        // After init, if no profile name, show prompt
+      onSuccess: () => {
+        if (!userProfile?.name) {
+          setShowNamePrompt(true);
+        }
+      },
+      onError: (err) => {
+        console.error("Initialize failed:", err);
         if (!userProfile?.name) {
           setShowNamePrompt(true);
         }
       },
     });
-  }, [identity, profileLoading, userProfile, initializeMutate]);
+  }, [
+    identity,
+    profileLoading,
+    actorFetching,
+    actor,
+    userProfile,
+    initializeMutate,
+  ]);
 
+  // Show prompt for returning users with no name set
   useEffect(() => {
-    if (!profileLoading && userProfile && !userProfile.name) {
+    if (!profileLoading && userProfile !== undefined && !userProfile?.name) {
       setShowNamePrompt(true);
     }
   }, [userProfile, profileLoading]);
 
-  const handleSaveName = () => {
+  // Auto-hide prompt when profile name is saved
+  useEffect(() => {
+    if (userProfile?.name) {
+      setShowNamePrompt(false);
+    }
+  }, [userProfile]);
+
+  const handleSaveName = useCallback(() => {
     if (!name.trim()) return;
+    if (!actor) {
+      toast.error("Still connecting, please wait a moment and try again.");
+      return;
+    }
     saveProfile.mutate(
       { name: name.trim() },
       {
@@ -58,10 +97,13 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
           setShowNamePrompt(false);
           toast.success("Welcome to HomeBase!");
         },
-        onError: () => toast.error("Failed to save profile"),
+        onError: (err) => {
+          console.error("Save profile error:", err);
+          toast.error("Failed to save profile. Please try again.");
+        },
       },
     );
-  };
+  }, [name, actor, saveProfile]);
 
   if (isInitializing) {
     return (
@@ -105,6 +147,7 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
                     Your Name
                   </Label>
                   <Input
+                    data-ocid="profile.name.input"
                     id="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -115,14 +158,15 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
                   />
                 </div>
                 <Button
+                  data-ocid="profile.save_button"
                   onClick={handleSaveName}
-                  disabled={!name.trim() || saveProfile.isPending}
+                  disabled={!name.trim() || saveProfile.isPending || !actor}
                   className="w-full bg-primary text-primary-foreground hover:shadow-glow-cyan transition-all"
                 >
                   {saveProfile.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : null}
-                  Get Started
+                  {!actor ? "Connecting..." : "Get Started"}
                 </Button>
               </div>
             </motion.div>
