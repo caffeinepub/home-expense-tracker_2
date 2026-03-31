@@ -1,0 +1,310 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Font Face Declarations ─────────────────────────────────── */
+@font-face {
+  font-family: "Sora";
+  src: url("/assets/fonts/Sora-VariableFont_wght.woff2") format("woff2");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/assets/fonts/BricolageGrotesque-VariableFont_opsz,wdth,wght.woff2")
+    format("woff2");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/assets/fonts/JetBrainsMono-VariableFont_wght.woff2")
+    format("woff2");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0.75rem;
+
+    /* Futuristic dark theme — deep space indigo + cyan neon */
+    --background: 0.09 0.012 260;
+    --foreground: 0.94 0.02 240;
+
+    --card: 0.13 0.025 255;
+    --card-foreground: 0.94 0.02 240;
+
+    --popover: 0.14 0.028 255;
+    --popover-foreground: 0.94 0.02 240;
+
+    --primary: 0.72 0.22 195; /* cyan neon */
+    --primary-foreground: 0.06 0.015 260;
+
+    --secondary: 0.18 0.04 260;
+    --secondary-foreground: 0.85 0.04 240;
+
+    --muted: 0.16 0.02 255;
+    --muted-foreground: 0.55 0.04 250;
+
+    --accent: 0.62 0.2 290; /* violet accent */
+    --accent-foreground: 0.97 0.01 240;
+
+    --destructive: 0.63 0.22 25;
+    --destructive-foreground: 0.97 0.01 240;
+
+    --border: 0.28 0.04 250;
+    --input: 0.2 0.035 255;
+    --ring: 0.72 0.22 195;
+
+    /* Charts — neon palette */
+    --chart-1: 0.72 0.22 195; /* cyan */
+    --chart-2: 0.62 0.2 290; /* violet */
+    --chart-3: 0.75 0.18 155; /* green */
+    --chart-4: 0.7 0.2 50; /* amber */
+    --chart-5: 0.65 0.22 25; /* coral */
+
+    /* Glow tokens */
+    --glow-cyan: 0 0 20px oklch(0.72 0.22 195 / 0.5), 0 0 40px
+      oklch(0.72 0.22 195 / 0.2);
+    --glow-violet: 0 0 20px oklch(0.62 0.2 290 / 0.5), 0 0 40px
+      oklch(0.62 0.2 290 / 0.2);
+    --glow-amber: 0 0 20px oklch(0.7 0.2 50 / 0.5), 0 0 40px
+      oklch(0.7 0.2 50 / 0.2);
+
+    /* Sidebar */
+    --sidebar: 0.11 0.018 260;
+    --sidebar-foreground: 0.85 0.02 240;
+    --sidebar-primary: 0.72 0.22 195;
+    --sidebar-primary-foreground: 0.06 0.015 260;
+    --sidebar-accent: 0.17 0.03 255;
+    --sidebar-accent-foreground: 0.85 0.02 240;
+    --sidebar-border: 0.25 0.04 250;
+    --sidebar-ring: 0.72 0.22 195;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  html.light {
+    color-scheme: light;
+
+    --background: 0.97 0.01 240;
+    --foreground: 0.12 0.02 260;
+
+    --card: 0.99 0.005 240;
+    --card-foreground: 0.12 0.02 260;
+
+    --popover: 0.99 0.005 240;
+    --popover-foreground: 0.12 0.02 260;
+
+    --primary: 0.55 0.22 195;
+    --primary-foreground: 0.98 0.005 240;
+
+    --secondary: 0.92 0.02 240;
+    --secondary-foreground: 0.2 0.03 260;
+
+    --muted: 0.94 0.015 240;
+    --muted-foreground: 0.45 0.04 250;
+
+    --accent: 0.5 0.2 290;
+    --accent-foreground: 0.98 0.005 240;
+
+    --destructive: 0.55 0.22 25;
+    --destructive-foreground: 0.98 0.005 240;
+
+    --border: 0.82 0.03 240;
+    --input: 0.9 0.02 240;
+    --ring: 0.55 0.22 195;
+
+    /* Charts — same hues, adjusted lightness for light bg */
+    --chart-1: 0.55 0.22 195;
+    --chart-2: 0.5 0.2 290;
+    --chart-3: 0.52 0.18 155;
+    --chart-4: 0.58 0.2 50;
+    --chart-5: 0.55 0.22 25;
+
+    /* Glow tokens — lighter for light mode */
+    --glow-cyan: 0 0 16px oklch(0.55 0.22 195 / 0.35), 0 0 32px
+      oklch(0.55 0.22 195 / 0.15);
+    --glow-violet: 0 0 16px oklch(0.5 0.2 290 / 0.35), 0 0 32px
+      oklch(0.5 0.2 290 / 0.15);
+    --glow-amber: 0 0 16px oklch(0.58 0.2 50 / 0.35), 0 0 32px
+      oklch(0.58 0.2 50 / 0.15);
+
+    /* Sidebar */
+    --sidebar: 0.95 0.015 240;
+    --sidebar-foreground: 0.15 0.02 260;
+    --sidebar-primary: 0.55 0.22 195;
+    --sidebar-primary-foreground: 0.98 0.005 240;
+    --sidebar-accent: 0.9 0.02 240;
+    --sidebar-accent-foreground: 0.2 0.03 260;
+    --sidebar-border: 0.8 0.03 240;
+    --sidebar-ring: 0.55 0.22 195;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Sora", "Bricolage Grotesque", sans-serif;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ─── Custom Utility Classes ─────────────────────────────────── */
+@layer utilities {
+  /* Glassmorphism card */
+  .glass {
+    background: oklch(0.14 0.025 255 / 0.55);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    border: 1px solid oklch(0.35 0.05 240 / 0.4);
+  }
+
+  .glass-light {
+    background: oklch(0.18 0.03 255 / 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid oklch(0.4 0.06 240 / 0.3);
+  }
+
+  /* Light mode glass overrides */
+  .light .glass {
+    background: oklch(0.98 0.008 240 / 0.8);
+    backdrop-filter: blur(16px) saturate(1.2);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    border: 1px solid oklch(0.75 0.04 240 / 0.5);
+  }
+
+  .light .glass-light {
+    background: oklch(0.96 0.01 240 / 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid oklch(0.78 0.04 240 / 0.4);
+  }
+
+  /* Neon glow */
+  .glow-cyan {
+    box-shadow: var(--glow-cyan);
+  }
+  .glow-violet {
+    box-shadow: var(--glow-violet);
+  }
+  .glow-text-cyan {
+    text-shadow: 0 0 12px oklch(0.72 0.22 195 / 0.7);
+  }
+
+  /* Gradient text */
+  .text-gradient-cyan {
+    background: linear-gradient(
+      135deg,
+      oklch(0.78 0.2 195),
+      oklch(0.68 0.18 230)
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .text-gradient-violet {
+    background: linear-gradient(
+      135deg,
+      oklch(0.72 0.22 195),
+      oklch(0.62 0.2 290)
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Neon border */
+  .border-neon-cyan {
+    border-color: oklch(0.72 0.22 195 / 0.6);
+  }
+  .border-neon-violet {
+    border-color: oklch(0.62 0.2 290 / 0.6);
+  }
+
+  /* Scan-line overlay for futuristic texture */
+  .scan-lines::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      oklch(0 0 0 / 0.03) 0px,
+      oklch(0 0 0 / 0.03) 1px,
+      transparent 1px,
+      transparent 2px
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Grid background */
+  .bg-grid {
+    background-image: linear-gradient(
+        oklch(0.35 0.05 250 / 0.08) 1px,
+        transparent 1px
+      ),
+      linear-gradient(90deg, oklch(0.35 0.05 250 / 0.08) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Light mode grid override */
+  .light .bg-grid {
+    background-image: linear-gradient(
+        oklch(0.6 0.04 240 / 0.1) 1px,
+        transparent 1px
+      ), linear-gradient(90deg, oklch(0.6 0.04 240 / 0.1) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Mono font */
+  .font-mono-display {
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  /* Display font */
+  .font-display {
+    font-family: "Bricolage Grotesque", sans-serif;
+  }
+}
+
+/* ─── Scrollbar Styling ───────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: oklch(0.1 0.012 260);
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(0.3 0.06 250);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.45 0.1 220);
+}
+
+/* Light mode scrollbar */
+.light ::-webkit-scrollbar-track {
+  background: oklch(0.92 0.015 240);
+}
+.light ::-webkit-scrollbar-thumb {
+  background: oklch(0.7 0.05 240);
+  border-radius: 3px;
+}
+.light ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.55 0.08 220);
+}

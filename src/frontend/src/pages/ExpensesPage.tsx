@@ -48,6 +48,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Category, Expense } from "../backend.d";
+import AppleCalendarPicker from "../components/AppleCalendarPicker";
 import MonthSelector from "../components/MonthSelector";
 import {
   useAddCategory,
@@ -97,23 +98,26 @@ interface ExpenseFormData {
   categoryId: string;
   notes: string;
   isRecurring: boolean;
+  date: Date;
 }
 
-const emptyForm: ExpenseFormData = {
-  title: "",
-  amount: "",
-  categoryId: "",
-  notes: "",
-  isRecurring: false,
-};
+function getEmptyForm(): ExpenseFormData {
+  return {
+    title: "",
+    amount: "",
+    categoryId: "",
+    notes: "",
+    isRecurring: false,
+    date: new Date(),
+  };
+}
 
 interface ExpenseModalProps {
   open: boolean;
   onClose: () => void;
   categories: Category[];
   editExpense?: Expense;
-  month: number;
-  year: number;
+  expenses: Expense[];
 }
 
 function ExpenseModal({
@@ -121,8 +125,7 @@ function ExpenseModal({
   onClose,
   categories,
   editExpense,
-  month,
-  year,
+  expenses,
 }: ExpenseModalProps) {
   const [form, setForm] = useState<ExpenseFormData>(
     editExpense
@@ -132,8 +135,12 @@ function ExpenseModal({
           categoryId: editExpense.categoryId.toString(),
           notes: editExpense.notes,
           isRecurring: editExpense.isRecurring,
+          date:
+            editExpense.createdAt > BigInt(0)
+              ? new Date(Number(editExpense.createdAt / BigInt(1_000_000)))
+              : new Date(),
         }
-      : emptyForm,
+      : getEmptyForm(),
   );
 
   const addExpense = useAddExpense();
@@ -151,6 +158,9 @@ function ExpenseModal({
       toast.error("Enter a valid amount");
       return;
     }
+
+    const month = form.date.getMonth() + 1;
+    const year = form.date.getFullYear();
 
     if (editExpense) {
       updateExpense.mutate(
@@ -187,7 +197,7 @@ function ExpenseModal({
           onSuccess: () => {
             toast.success("Expense added");
             onClose();
-            setForm(emptyForm);
+            setForm(getEmptyForm());
           },
           onError: () => toast.error("Failed to add expense"),
         },
@@ -218,6 +228,19 @@ function ExpenseModal({
               autoFocus
             />
           </div>
+
+          {/* ── Apple Calendar Date Picker ── */}
+          <div>
+            <Label className="text-xs text-muted-foreground uppercase tracking-wider">
+              Date
+            </Label>
+            <AppleCalendarPicker
+              value={form.date}
+              onChange={(date) => setForm((p) => ({ ...p, date }))}
+              expenses={expenses}
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-muted-foreground uppercase tracking-wider">
@@ -292,6 +315,7 @@ function ExpenseModal({
               variant="outline"
               onClick={onClose}
               className="flex-1 border-border hover:bg-secondary/40"
+              data-ocid="expense.cancel_button"
             >
               Cancel
             </Button>
@@ -299,6 +323,7 @@ function ExpenseModal({
               type="submit"
               disabled={isPending}
               className="flex-1 bg-primary/20 text-primary border border-primary/50 hover:bg-primary/30 hover:shadow-glow-cyan transition-all"
+              data-ocid="expense.submit_button"
             >
               {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {editExpense ? "Update" : "Add Expense"}
@@ -325,90 +350,175 @@ interface ParsedSMS {
 function parseBankSMS(sms: string, categories: Category[]): ParsedSMS | null {
   if (!sms || !sms.trim()) return null;
 
-  // 1. Extract amount — supports Rs., INR, ₹, Debit of, credited with
+  const text = sms.trim();
+
+  // 1. Extract amount — comprehensive patterns for Indian bank SMS
+  let amount = Number.NaN;
   const amountPatterns = [
     /(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
-    /(?:debit(?:ed)?(?:\s+of)?|paid|debited\s+by)\s+(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
-    /(?:[\d,]+(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)/i,
+    /([\d,]+(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)/i,
+    /(?:debit(?:ed)?(?:\s+(?:of|by|for))?|paid|sent|transfer(?:red)?)\s+(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /amount\s+(?:of\s+)?(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
   ];
-  let amount = Number.NaN;
+
   for (const pattern of amountPatterns) {
-    const match = sms.match(pattern);
+    const match = text.match(pattern);
     if (match) {
-      // Last capture group with digits
-      const numStr = match[match.length - 1] ?? match[1];
-      if (numStr) {
-        amount = Number.parseFloat(numStr.replace(/,/g, ""));
-        if (!Number.isNaN(amount) && amount > 0) break;
+      const numStr = (match[match.length - 1] ?? match[1] ?? "").replace(
+        /,/g,
+        "",
+      );
+      const parsed = Number.parseFloat(numStr);
+      if (!Number.isNaN(parsed) && parsed > 0) {
+        amount = parsed;
+        break;
       }
     }
   }
   if (Number.isNaN(amount) || amount <= 0) return null;
 
-  // 2. Extract merchant — try multiple strategies
+  // 2. Extract merchant using ordered strategies
+  const blocklist = new Set([
+    "your",
+    "our",
+    "the",
+    "his",
+    "her",
+    "their",
+    "this",
+    "that",
+    "upi",
+    "neft",
+    "imps",
+    "rtgs",
+    "bank",
+    "account",
+    "ac",
+    "acno",
+    "ref",
+    "id",
+    "no",
+    "number",
+    "linked",
+    "mobile",
+    "card",
+    "atm",
+    "not",
+    "you",
+    "please",
+    "call",
+    "helpline",
+    "report",
+    "fraud",
+    "visit",
+    "click",
+    "http",
+    "https",
+    "www",
+  ]);
+
   let merchantRaw = "";
 
-  // Strategy A: UPI VPA after "to" — e.g. "to swiggy.stores@axb" or "to swiggy580017.rzp@rxaxis"
-  // Matches the full VPA token (letters, digits, dots, hyphens, @)
-  const upiToMatch = sms.match(
-    /\bto\s+([A-Za-z0-9._@-]+(?:@[A-Za-z0-9._-]+)?)/i,
+  // Strategy A: UPI VPA — "to <vpa>@<bank>"
+  const upiToMatch = text.match(
+    /\bto\s+([A-Za-z][A-Za-z0-9._-]{0,40}@[A-Za-z0-9._-]+)/i,
   );
   if (upiToMatch) {
-    let raw = upiToMatch[1];
-    // Remove domain part after '@'
-    if (raw.includes("@")) raw = raw.split("@")[0];
-    // Strip known UPI service suffixes separated by '.'
-    // e.g. swiggy.stores → swiggy, swiggy580017.rzp → swiggy
+    let raw = upiToMatch[1].split("@")[0];
     raw = raw.replace(
-      /\.(stores?|rzp|paytm|upi|ybl|okaxis|okhdfcbank|okicici|oksbi|ibl|axis|sbi|hdfcbank|axb|axisb?|hdfc|icici|kotak|idfcbank|airtel|jio|fbl|pingpay|abfspay|waicici|wahdfc)$/i,
+      /\.(stores?|rzp|paytm|upi|ybl|okaxis|okhdfcbank|okicici|oksbi|ibl|axis|sbi|hdfcbank|axb|axisb?|hdfc|icici|kotak|idfcbank|airtel|jio|fbl|pingpay|abfspay|waicici|wahdfc|perf|collect|razorpay|gpay)$/i,
       "",
     );
-    // Strip numeric suffixes (e.g. swiggy580017 → swiggy)
     raw = raw.replace(/\d+$/, "");
-    // Strip leading numerics and trailing punctuation
-    raw = raw.replace(/^[\d._-]+/, "").replace(/[._-]+$/, "");
-    // Extract leading alphabetic brand name
+    raw = raw.replace(/^[._-]+|[._-]+$/g, "");
     const brandMatch = raw.match(/^([A-Za-z]+)/);
-    merchantRaw = brandMatch ? brandMatch[1].trim() : raw.trim();
+    const candidate = (brandMatch ? brandMatch[1] : raw).toLowerCase();
+    if (candidate && !blocklist.has(candidate) && candidate.length > 1) {
+      merchantRaw = candidate;
+    }
   }
 
-  // Strategy B: Card POS — "at <Merchant Name>"
+  // Strategy B: "to <Name>" not a VPA
   if (!merchantRaw) {
-    const cardMatch = sms.match(
-      /\bat\s+([A-Z][A-Za-z0-9\s&'/-]{2,40}?)(?:\s+on\s|\s+dated|\s+Ref|\s*\.|$)/i,
+    const toNameMatch = text.match(
+      /\bto\s+([A-Z][A-Za-z0-9\s&'/-]{1,40}?)(?:\s+on\s|\s+dated|\s+for\s|\s+via\s|\s*[.,]|$)/i,
+    );
+    if (toNameMatch) {
+      const candidate = toNameMatch[1].trim();
+      const firstWord = candidate.split(/\s+/)[0].toLowerCase();
+      if (
+        !blocklist.has(firstWord) &&
+        !/^\d/.test(candidate) &&
+        candidate.length > 1 &&
+        !candidate.toLowerCase().includes("@")
+      ) {
+        merchantRaw = candidate.toLowerCase();
+      }
+    }
+  }
+
+  // Strategy C: Card POS — "at <Merchant>"
+  if (!merchantRaw) {
+    const cardMatch = text.match(
+      /\bat\s+([A-Z][A-Za-z0-9\s&'/-]{2,40}?)(?:\s+on\s|\s+dated|\s+Ref|\s*[.,]|$)/i,
     );
     if (cardMatch) {
-      merchantRaw = cardMatch[1].trim();
+      const candidate = cardMatch[1].trim();
+      const firstWord = candidate.split(/\s+/)[0].toLowerCase();
+      if (!blocklist.has(firstWord) && candidate.length > 1) {
+        merchantRaw = candidate.toLowerCase();
+      }
     }
   }
 
-  // Strategy C: "for <description>" pattern
+  // Strategy D: "for <description>"
   if (!merchantRaw) {
-    const forMatch = sms.match(
-      /\bfor\s+([A-Za-z][A-Za-z0-9\s&'-]{2,40}?)(?:\s+on\s|\s*\.|$)/i,
+    const forMatch = text.match(
+      /\bfor\s+([A-Za-z][A-Za-z0-9\s&'-]{2,40}?)(?:\s+on\s|\s*[.,]|$)/i,
     );
     if (forMatch) {
-      merchantRaw = forMatch[1].trim();
+      const candidate = forMatch[1].trim();
+      const firstWord = candidate.split(/\s+/)[0].toLowerCase();
+      if (
+        !blocklist.has(firstWord) &&
+        candidate.length > 1 &&
+        !candidate.toLowerCase().includes("@")
+      ) {
+        merchantRaw = candidate.toLowerCase();
+      }
     }
   }
 
-  // 3. Merchant → category mapping (check merchant name AND full SMS text for known brands)
-  const lowerSMS = sms.toLowerCase();
+  // 3. Match merchant to category
   const lowerMerchant = merchantRaw.toLowerCase();
-
-  const findCat = (keywords: string[]): Category | undefined =>
-    categories.find((c) =>
-      keywords.some((kw) => c.name.toLowerCase().includes(kw)),
-    );
+  const lowerSMS = text.toLowerCase();
 
   let matchedCategory: Category | undefined;
 
-  const merchantCategories: Array<{
+  const findCat = (keywords: string[]): Category | undefined =>
+    categories.find((c) =>
+      keywords.some(
+        (kw) =>
+          c.name.toLowerCase().includes(kw) ||
+          c.icon.toLowerCase().includes(kw),
+      ),
+    );
+
+  const merchantCategories: {
     merchants: string[];
     categoryKeywords: string[];
-  }> = [
+  }[] = [
     {
-      merchants: ["swiggy", "zomato", "eatsure", "faasos", "box8", "freshmenu"],
+      merchants: [
+        "swiggy",
+        "zomato",
+        "dominos",
+        "mcdonald",
+        "kfc",
+        "pizza hut",
+        "subway",
+        "burger king",
+      ],
       categoryKeywords: ["food", "grocer", "dining"],
     },
     {
@@ -420,6 +530,8 @@ function parseBankSMS(sms: string, categories: Category[]): ParsedSMS | null {
         "jiomart",
         "dmart",
         "grofer",
+        "instamart",
+        "nature basket",
       ],
       categoryKeywords: ["grocer", "food"],
     },
@@ -431,11 +543,23 @@ function parseBankSMS(sms: string, categories: Category[]): ParsedSMS | null {
         "meesho",
         "snapdeal",
         "nykaa",
+        "ajio",
+        "tatacliq",
       ],
       categoryKeywords: ["shop", "general"],
     },
     {
-      merchants: ["uber", "ola", "rapido", "redbus", "irctc", "makemytrip"],
+      merchants: [
+        "uber",
+        "ola",
+        "rapido",
+        "redbus",
+        "irctc",
+        "makemytrip",
+        "goibibo",
+        "yatra",
+        "cleartrip",
+      ],
       categoryKeywords: ["transport", "travel"],
     },
     {
@@ -451,6 +575,9 @@ function parseBankSMS(sms: string, categories: Category[]): ParsedSMS | null {
         "wbsedcl",
         "adani",
         "tata power",
+        "cesc",
+        "apepdcl",
+        "discom",
       ],
       categoryKeywords: ["electric"],
     },
@@ -463,7 +590,16 @@ function parseBankSMS(sms: string, categories: Category[]): ParsedSMS | null {
       categoryKeywords: ["maintenance"],
     },
     {
-      merchants: ["netflix", "hotstar", "spotify", "prime", "youtube premium"],
+      merchants: [
+        "netflix",
+        "hotstar",
+        "spotify",
+        "prime",
+        "youtube premium",
+        "disney",
+        "zee5",
+        "sonyliv",
+      ],
       categoryKeywords: ["subscript", "entertain", "general"],
     },
     {
@@ -475,8 +611,32 @@ function parseBankSMS(sms: string, categories: Category[]): ParsedSMS | null {
         "apollo",
         "1mg",
         "netmeds",
+        "practo",
       ],
       categoryKeywords: ["health", "medical"],
+    },
+    {
+      merchants: ["servant", "maid", "cook", "driver", "nanny", "helper"],
+      categoryKeywords: ["servant", "salary", "staff"],
+    },
+    {
+      merchants: [
+        "reliance",
+        "airtel",
+        "jio",
+        "vodafone",
+        "vi ",
+        "bsnl",
+        "tata sky",
+        "tataplay",
+      ],
+      categoryKeywords: [
+        "mobile",
+        "recharge",
+        "broadband",
+        "internet",
+        "telecom",
+      ],
     },
   ];
 
@@ -490,16 +650,15 @@ function parseBankSMS(sms: string, categories: Category[]): ParsedSMS | null {
     }
   }
 
-  // 4. Build title and merchant name
+  // 4. Build title
   const cleanMerchant = merchantRaw
-    ? merchantRaw.charAt(0).toUpperCase() + merchantRaw.slice(1).toLowerCase()
+    ? merchantRaw.charAt(0).toUpperCase() + merchantRaw.slice(1)
     : "";
   const title = cleanMerchant || "UPI Payment";
 
-  // 5. Notes = first 100 chars of SMS
-  const notes = sms.trim().slice(0, 100);
+  // 5. Notes = first 120 chars of SMS
+  const notes = text.slice(0, 120);
 
-  // Return null categoryId if no known merchant matched (caller will create category)
   return {
     amount,
     title,
@@ -898,6 +1057,7 @@ export default function ExpensesPage() {
         <Button
           onClick={openAdd}
           className="bg-primary/20 text-primary border border-primary/50 hover:bg-primary/30 hover:shadow-glow-cyan transition-all"
+          data-ocid="expense.primary_button"
         >
           <Plus className="h-4 w-4 mr-2" />
           Add Expense
@@ -906,6 +1066,7 @@ export default function ExpensesPage() {
           onClick={handleSuggestRecurring}
           variant="outline"
           className="border-accent/40 text-accent hover:bg-accent/10 hover:border-accent/60"
+          data-ocid="expense.secondary_button"
         >
           <RefreshCcw className="h-4 w-4 mr-2" />
           Suggest Recurring
@@ -915,6 +1076,7 @@ export default function ExpensesPage() {
           variant="outline"
           disabled={expenses.length === 0}
           className="border-border hover:bg-secondary/40 ml-auto"
+          data-ocid="expense.export_button"
         >
           <FileDown className="h-4 w-4 mr-2" />
           Export PDF
@@ -924,13 +1086,13 @@ export default function ExpensesPage() {
       {/* Table */}
       <div className="glass rounded-xl overflow-hidden">
         {isLoading ? (
-          <div className="p-4 space-y-2">
+          <div className="p-4 space-y-2" data-ocid="expense.loading_state">
             {[1, 2, 3, 4, 5].map((i) => (
               <Skeleton key={i} className="h-12 bg-muted/20" />
             ))}
           </div>
         ) : expenses.length === 0 ? (
-          <div className="py-20 text-center">
+          <div className="py-20 text-center" data-ocid="expense.empty_state">
             <div className="w-16 h-16 rounded-full bg-muted/20 flex items-center justify-center mx-auto mb-4">
               <Receipt className="h-7 w-7 text-muted-foreground" />
             </div>
@@ -942,7 +1104,7 @@ export default function ExpensesPage() {
             </p>
           </div>
         ) : (
-          <Table>
+          <Table data-ocid="expense.table">
             <TableHeader>
               <TableRow className="border-border/40 hover:bg-transparent">
                 <TableHead className="text-muted-foreground text-xs uppercase tracking-wider font-mono">
@@ -976,6 +1138,7 @@ export default function ExpensesPage() {
                     exit={{ opacity: 0, x: 10 }}
                     transition={{ delay: i * 0.02 }}
                     className="border-border/30 hover:bg-secondary/20 transition-colors"
+                    data-ocid={`expense.item.${i + 1}`}
                   >
                     <TableCell className="text-muted-foreground text-sm font-mono">
                       {formatDate(exp.createdAt)}
@@ -1015,6 +1178,7 @@ export default function ExpensesPage() {
                             className="h-7 px-2 text-xs"
                             onClick={() => handleDelete(exp.id)}
                             disabled={deleteExpense.isPending}
+                            data-ocid={`expense.delete_button.${i + 1}`}
                           >
                             {deleteExpense.isPending ? (
                               <Loader2 className="h-3 w-3 animate-spin" />
@@ -1027,6 +1191,7 @@ export default function ExpensesPage() {
                             variant="ghost"
                             className="h-7 px-2 text-xs"
                             onClick={() => setDeleteConfirm(null)}
+                            data-ocid={`expense.cancel_button.${i + 1}`}
                           >
                             ✕
                           </Button>
@@ -1093,8 +1258,7 @@ export default function ExpensesPage() {
         }}
         categories={categories}
         editExpense={editingExpense}
-        month={month}
-        year={year}
+        expenses={expenses}
       />
     </motion.div>
   );

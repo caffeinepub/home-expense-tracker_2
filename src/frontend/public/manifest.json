@@ -1,0 +1,18 @@
+{
+  "name": "Home Expense Tracker",
+  "short_name": "Expense Tracker",
+  "description": "Family expense tracking made smart",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a1a",
+  "theme_color": "#0a0a1a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/assets/img_8755-019d428b-18c3-74c9-8a54-97c0e5ecee30.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
