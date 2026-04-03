@@ -138,8 +138,9 @@ actor {
     icon : Text,
     budgetLimit : ?Float,
   ) : async Nat {
-    if (not isAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only admins can add categories");
+    ensureRegistered(caller);
+    if (not isUser(caller)) {
+      Runtime.trap("Unauthorized: Must be logged in to add categories");
     };
     let id = nextCategoryId;
     categories.add(id, { id; name; icon; budgetLimit; isDefault = false });
@@ -153,8 +154,9 @@ actor {
     icon : Text,
     budgetLimit : ?Float,
   ) : async () {
-    if (not isAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only admins can update categories");
+    ensureRegistered(caller);
+    if (not isUser(caller)) {
+      Runtime.trap("Unauthorized: Must be logged in to update categories");
     };
     switch (categories.get(id)) {
       case (null) { Runtime.trap("Category not found") };
@@ -171,8 +173,9 @@ actor {
   };
 
   public shared ({ caller }) func deleteCategory(id : Nat) : async () {
-    if (not isAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only admins can delete categories");
+    ensureRegistered(caller);
+    if (not isUser(caller)) {
+      Runtime.trap("Unauthorized: Must be logged in to delete categories");
     };
     switch (categories.get(id)) {
       case (null) { Runtime.trap("Category not found") };
