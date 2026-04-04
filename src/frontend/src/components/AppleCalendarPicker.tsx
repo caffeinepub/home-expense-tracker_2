@@ -6,7 +6,7 @@ import {
 import { cn } from "@/lib/utils";
 import { CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Expense } from "../backend.d";
 
 interface AppleCalendarPickerProps {
@@ -79,6 +79,13 @@ export default function AppleCalendarPicker({
   const [viewYear, setViewYear] = useState(() => value.getFullYear());
   const [viewMonth, setViewMonth] = useState(() => value.getMonth());
   const [slideDir, setSlideDir] = useState<1 | -1>(1);
+
+  // Sync the calendar view whenever the value changes (e.g., modal opens
+  // with a different month selected from the MonthSelector)
+  useEffect(() => {
+    setViewYear(value.getFullYear());
+    setViewMonth(value.getMonth());
+  }, [value]);
 
   const today = new Date();
   const cells = buildCalendarCells(viewYear, viewMonth);

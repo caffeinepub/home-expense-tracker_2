@@ -62,18 +62,61 @@ actor {
   var nextCategoryId = 1;
   var nextExpenseId = 1;
 
-  // Default categories
+  // Default categories - comprehensive household expense categories
   let defaultCategories : [Category] = [
-    { id = 1; name = "Servant Salary"; icon = "💼"; budgetLimit = null; isDefault = true },
-    { id = 2; name = "Electricity"; icon = "💡"; budgetLimit = null; isDefault = true },
-    { id = 3; name = "Water"; icon = "🚰"; budgetLimit = null; isDefault = true },
-    { id = 4; name = "Maintenance"; icon = "🛠️"; budgetLimit = null; isDefault = true },
-    { id = 5; name = "Repairs"; icon = "🔧"; budgetLimit = null; isDefault = true },
-    { id = 6; name = "Groceries"; icon = "🍎"; budgetLimit = null; isDefault = true },
-    { id = 7; name = "Rent"; icon = "🏠"; budgetLimit = null; isDefault = true },
-    { id = 8; name = "Internet"; icon = "🌐"; budgetLimit = null; isDefault = true },
-    { id = 9; name = "Medical"; icon = "⚕️"; budgetLimit = null; isDefault = true },
-    { id = 10; name = "Miscellaneous"; icon = "🧩"; budgetLimit = null; isDefault = true },
+    // Housing & Utilities
+    { id = 1;  name = "Rent / EMI";              icon = "🏠"; budgetLimit = null; isDefault = true },
+    { id = 2;  name = "Electricity";             icon = "💡"; budgetLimit = null; isDefault = true },
+    { id = 3;  name = "Water";                   icon = "🚰"; budgetLimit = null; isDefault = true },
+    { id = 4;  name = "Gas / LPG";               icon = "🔥"; budgetLimit = null; isDefault = true },
+    { id = 5;  name = "Internet / Broadband";    icon = "🌐"; budgetLimit = null; isDefault = true },
+    { id = 6;  name = "Mobile / Phone Bill";     icon = "📱"; budgetLimit = null; isDefault = true },
+    { id = 7;  name = "Maintenance";             icon = "🛠️"; budgetLimit = null; isDefault = true },
+    { id = 8;  name = "Repairs";                 icon = "🔧"; budgetLimit = null; isDefault = true },
+    // Food & Groceries
+    { id = 9;  name = "Groceries";               icon = "🍎"; budgetLimit = null; isDefault = true },
+    { id = 10; name = "Swiggy";                  icon = "🛵"; budgetLimit = null; isDefault = true },
+    { id = 11; name = "Zomato";                  icon = "🍕"; budgetLimit = null; isDefault = true },
+    { id = 12; name = "Blinkit";                 icon = "⚡"; budgetLimit = null; isDefault = true },
+    { id = 13; name = "Zepto";                   icon = "🟡"; budgetLimit = null; isDefault = true },
+    { id = 14; name = "BigBasket";               icon = "🛒"; budgetLimit = null; isDefault = true },
+    { id = 15; name = "Milk / Dairy";            icon = "🥛"; budgetLimit = null; isDefault = true },
+    { id = 16; name = "Meat";                    icon = "🥩"; budgetLimit = null; isDefault = true },
+    // Household Help
+    { id = 17; name = "Servant Salary / Maid";  icon = "💼"; budgetLimit = null; isDefault = true },
+    { id = 18; name = "Cook Salary";             icon = "👨‍🍳"; budgetLimit = null; isDefault = true },
+    { id = 19; name = "Driver Salary";           icon = "🚗"; budgetLimit = null; isDefault = true },
+    { id = 20; name = "Security / Guard";        icon = "💂"; budgetLimit = null; isDefault = true },
+    // Health & Medical
+    { id = 21; name = "Medical / Pharmacy";      icon = "💊"; budgetLimit = null; isDefault = true },
+    { id = 22; name = "Doctor / Consultation";   icon = "🩺"; budgetLimit = null; isDefault = true },
+    { id = 23; name = "Health Insurance";        icon = "⚕️"; budgetLimit = null; isDefault = true },
+    // Education
+    { id = 24; name = "School Fees";             icon = "🏫"; budgetLimit = null; isDefault = true },
+    { id = 25; name = "Tuition / Coaching";      icon = "📚"; budgetLimit = null; isDefault = true },
+    { id = 26; name = "Books & Stationery";      icon = "📖"; budgetLimit = null; isDefault = true },
+    // Transport
+    { id = 27; name = "Fuel / Petrol";           icon = "⛽"; budgetLimit = null; isDefault = true },
+    { id = 28; name = "Vehicle Maintenance";     icon = "🔩"; budgetLimit = null; isDefault = true },
+    { id = 29; name = "Auto / Cab / Rickshaw";   icon = "🚕"; budgetLimit = null; isDefault = true },
+    { id = 30; name = "Parking";                 icon = "🅿️"; budgetLimit = null; isDefault = true },
+    // Shopping & Lifestyle
+    { id = 31; name = "Clothing";                icon = "👗"; budgetLimit = null; isDefault = true },
+    { id = 32; name = "Personal Care / Salon";   icon = "💇"; budgetLimit = null; isDefault = true },
+    { id = 33; name = "Amazon / Online Shopping";icon = "📦"; budgetLimit = null; isDefault = true },
+    // Entertainment & Subscriptions
+    { id = 34; name = "OTT / Streaming";         icon = "📺"; budgetLimit = null; isDefault = true },
+    { id = 35; name = "Dining Out";              icon = "🍽️"; budgetLimit = null; isDefault = true },
+    { id = 36; name = "Movies / Events";         icon = "🎬"; budgetLimit = null; isDefault = true },
+    // Finance & Taxes
+    { id = 37; name = "Insurance Premium";       icon = "🛡️"; budgetLimit = null; isDefault = true },
+    { id = 38; name = "Loan EMI";                icon = "🏦"; budgetLimit = null; isDefault = true },
+    { id = 39; name = "SIP / Investments";       icon = "📈"; budgetLimit = null; isDefault = true },
+    { id = 40; name = "Property Tax";            icon = "🏛️"; budgetLimit = null; isDefault = true },
+    // Miscellaneous
+    { id = 41; name = "Gifts / Donations";       icon = "🎁"; budgetLimit = null; isDefault = true },
+    { id = 42; name = "Temple / Charity";        icon = "🙏"; budgetLimit = null; isDefault = true },
+    { id = 43; name = "Miscellaneous";           icon = "🧩"; budgetLimit = null; isDefault = true },
   ];
 
   // Returns the role, or #guest if not registered (never traps)
@@ -129,7 +172,7 @@ actor {
       for (category in defaultCategories.values()) {
         categories.add(category.id, category);
       };
-      nextCategoryId := 11;
+      nextCategoryId := 44;
     };
   };
 

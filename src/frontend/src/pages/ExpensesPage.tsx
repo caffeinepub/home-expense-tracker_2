@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   FileDown,
   Loader2,
@@ -45,7 +46,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Category, Expense } from "../backend.d";
 import AppleCalendarPicker from "../components/AppleCalendarPicker";
@@ -118,6 +119,8 @@ interface ExpenseModalProps {
   categories: Category[];
   editExpense?: Expense;
   expenses: Expense[];
+  selectedMonth: number;
+  selectedYear: number;
 }
 
 function ExpenseModal({
@@ -126,7 +129,10 @@ function ExpenseModal({
   categories,
   editExpense,
   expenses,
+  selectedMonth,
+  selectedYear,
 }: ExpenseModalProps) {
+  const defaultDate = new Date(selectedYear, selectedMonth - 1, 1);
   const [form, setForm] = useState<ExpenseFormData>(
     editExpense
       ? {
@@ -138,10 +144,20 @@ function ExpenseModal({
           date:
             editExpense.createdAt > BigInt(0)
               ? new Date(Number(editExpense.createdAt / BigInt(1_000_000)))
-              : new Date(),
+              : defaultDate,
         }
-      : getEmptyForm(),
+      : { ...getEmptyForm(), date: defaultDate },
   );
+
+  // Reset form with the correct month's date whenever the modal opens
+  useEffect(() => {
+    if (open) {
+      const d = new Date(selectedYear, selectedMonth - 1, 1);
+      if (!editExpense) {
+        setForm({ ...getEmptyForm(), date: d });
+      }
+    }
+  }, [open, selectedMonth, selectedYear, editExpense]);
 
   const addExpense = useAddExpense();
   const updateExpense = useUpdateExpense();
@@ -856,6 +872,58 @@ export default function ExpensesPage() {
     useCategories();
   const { data: recurringExpenses = [] } = useRecurringExpenses();
   const deleteExpense = useDeleteExpense();
+  const addExpense = useAddExpense();
+  const qc = useQueryClient();
+
+  // Auto-add recurring expenses when a month has zero expenses
+  const autoAddedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const key = `${month}-${year}`;
+    if (
+      !isLoading &&
+      expenses.length === 0 &&
+      recurringExpenses.length > 0 &&
+      !autoAddedRef.current.has(key)
+    ) {
+      autoAddedRef.current.add(key);
+      let addedCount = 0;
+      const promises = recurringExpenses.map((rec) => {
+        return addExpense
+          .mutateAsync({
+            title: rec.title,
+            amount: rec.amount,
+            categoryId: rec.categoryId,
+            month,
+            year,
+            notes: rec.notes,
+            isRecurring: true,
+          })
+          .then(() => {
+            addedCount++;
+          })
+          .catch(() => {
+            /* skip individual failures */
+          });
+      });
+      void Promise.all(promises).then(() => {
+        if (addedCount > 0) {
+          const monthName = MONTHS_FULL[month - 1];
+          toast.success(
+            `${addedCount} recurring expense${addedCount > 1 ? "s" : ""} added for ${monthName}`,
+          );
+          void qc.invalidateQueries({ queryKey: ["expenses", month, year] });
+        }
+      });
+    }
+  }, [
+    isLoading,
+    expenses.length,
+    recurringExpenses,
+    month,
+    year,
+    addExpense,
+    qc,
+  ]);
 
   const getCategoryName = (id: bigint) =>
     categories.find((c) => c.id === id)?.name ?? "Unknown";
@@ -884,21 +952,53 @@ export default function ExpensesPage() {
     );
   };
 
-  const handleSuggestRecurring = () => {
+  const handleAddRecurring = async () => {
     if (recurringExpenses.length === 0) {
       toast.info("No recurring expenses found");
       return;
     }
-    const first = recurringExpenses[0];
-    setEditingExpense({
-      ...first,
-      id: BigInt(0),
-      month: BigInt(month),
-      year: BigInt(year),
-      createdAt: BigInt(0),
-    });
-    setModalOpen(true);
-    toast.info(`Pre-filled with "${first.title}" — update as needed`);
+
+    // Dedup: skip expenses already in current month with same title + categoryId
+    const existing = new Set(
+      expenses.map((e) => `${e.title.toLowerCase()}|${e.categoryId}`),
+    );
+    const toAdd = recurringExpenses.filter(
+      (rec) => !existing.has(`${rec.title.toLowerCase()}|${rec.categoryId}`),
+    );
+
+    if (toAdd.length === 0) {
+      toast.info("All recurring expenses already added this month");
+      return;
+    }
+
+    let addedCount = 0;
+    await Promise.all(
+      toAdd.map((rec) =>
+        addExpense
+          .mutateAsync({
+            title: rec.title,
+            amount: rec.amount,
+            categoryId: rec.categoryId,
+            month,
+            year,
+            notes: rec.notes,
+            isRecurring: true,
+          })
+          .then(() => {
+            addedCount++;
+          })
+          .catch(() => {
+            /* skip individual failures */
+          }),
+      ),
+    );
+
+    if (addedCount > 0) {
+      toast.success(
+        `${addedCount} recurring expense${addedCount > 1 ? "s" : ""} added`,
+      );
+      void qc.invalidateQueries({ queryKey: ["expenses", month, year] });
+    }
   };
 
   const handleExportPDF = () => {
@@ -1063,13 +1163,13 @@ export default function ExpensesPage() {
           Add Expense
         </Button>
         <Button
-          onClick={handleSuggestRecurring}
+          onClick={() => void handleAddRecurring()}
           variant="outline"
           className="border-accent/40 text-accent hover:bg-accent/10 hover:border-accent/60"
           data-ocid="expense.secondary_button"
         >
           <RefreshCcw className="h-4 w-4 mr-2" />
-          Suggest Recurring
+          Add Recurring
         </Button>
         <Button
           onClick={handleExportPDF}
@@ -1259,6 +1359,8 @@ export default function ExpensesPage() {
         categories={categories}
         editExpense={editingExpense}
         expenses={expenses}
+        selectedMonth={month}
+        selectedYear={year}
       />
     </motion.div>
   );
